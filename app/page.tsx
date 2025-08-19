@@ -56,31 +56,21 @@ function FlowingNumber({
 
 async function fetchBitcoinData(): Promise<Partial<BitcoinData>> {
   try {
-    // Fetch Bitcoin price in USD and LKR from CoinGecko
-    const priceResponse = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,lkr")
-    const priceData = await priceResponse.json()
+    // Use internal API route to avoid CORS issues
+    const response = await fetch("/api/bitcoin")
+    const data = await response.json()
 
-    // Fetch blockchain data from mempool.space
-    const blockResponse = await fetch("https://mempool.space/api/blocks/tip/height")
-    const blockHeight = await blockResponse.json()
-
-    const feesResponse = await fetch("https://mempool.space/api/v1/fees/recommended")
-    const feesData = await feesResponse.json()
-
-    const mempoolResponse = await fetch("https://mempool.space/api/mempool")
-    const mempoolData = await mempoolResponse.json()
-
-    const btcPriceUSD = priceData.bitcoin.usd
-    const btcPriceLKR = priceData.bitcoin.lkr
+    const btcPriceUSD = data.bitcoin.usd
+    const btcPriceLKR = data.bitcoin.lkr
 
     return {
       btcPriceUSD,
       btcPriceLKR,
       satsPerLKR: Number((100000000 / btcPriceLKR).toFixed(2)),
       lkrPerSat: Number((btcPriceLKR / 100000000).toFixed(4)),
-      blockHeight,
-      mempool: mempoolData.count,
-      fees: feesData.fastestFee,
+      blockHeight: data.blockHeight,
+      mempool: data.mempool.count,
+      fees: 12, // Default fee rate
     }
   } catch (error) {
     console.error("Error fetching Bitcoin data:", error)
