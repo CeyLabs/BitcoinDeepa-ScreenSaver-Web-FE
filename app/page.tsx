@@ -54,12 +54,46 @@ function FlowingNumber({
   )
 }
 
+async function fetchBitcoinData(): Promise<Partial<BitcoinData>> {
+  try {
+    // Fetch Bitcoin price in USD and LKR from CoinGecko
+    const priceResponse = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,lkr")
+    const priceData = await priceResponse.json()
+
+    // Fetch blockchain data from mempool.space
+    const blockResponse = await fetch("https://mempool.space/api/blocks/tip/height")
+    const blockHeight = await blockResponse.json()
+
+    const feesResponse = await fetch("https://mempool.space/api/v1/fees/recommended")
+    const feesData = await feesResponse.json()
+
+    const mempoolResponse = await fetch("https://mempool.space/api/mempool")
+    const mempoolData = await mempoolResponse.json()
+
+    const btcPriceUSD = priceData.bitcoin.usd
+    const btcPriceLKR = priceData.bitcoin.lkr
+
+    return {
+      btcPriceUSD,
+      btcPriceLKR,
+      satsPerLKR: Number((100000000 / btcPriceLKR).toFixed(2)),
+      lkrPerSat: Number((btcPriceLKR / 100000000).toFixed(4)),
+      blockHeight,
+      mempool: mempoolData.count,
+      fees: feesData.fastestFee,
+    }
+  } catch (error) {
+    console.error("Error fetching Bitcoin data:", error)
+    return {}
+  }
+}
+
 export default function BitcoinDashboard() {
   const [data, setData] = useState<BitcoinData>({
     btcPriceLKR: 29850000,
     btcPriceUSD: 98500,
-    satsPerLKR: 2.67,
-    lkrPerSat: 0.37,
+    satsPerLKR: 3.35,
+    lkrPerSat: 0.299,
     blockHeight: 875432,
     difficulty: "109.78T",
     mempool: 15234,
@@ -69,18 +103,37 @@ export default function BitcoinDashboard() {
   const [previousData, setPreviousData] = useState<BitcoinData>(data)
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    fetchBitcoinData().then((newData) => {
+      if (Object.keys(newData).length > 0) {
+        setData((prev) => ({ ...prev, ...newData }))
+      }
+    })
+
+    const interval = setInterval(async () => {
       setPreviousData(data)
-      setData((prev) => ({
-        btcPriceLKR: prev.btcPriceLKR + (Math.random() - 0.5) * 50000,
-        btcPriceUSD: prev.btcPriceUSD + (Math.random() - 0.5) * 200,
-        satsPerLKR: Number((100000000 / (prev.btcPriceLKR + (Math.random() - 0.5) * 50000)).toFixed(2)),
-        lkrPerSat: Number(((prev.btcPriceLKR + (Math.random() - 0.5) * 50000) / 100000000).toFixed(4)),
-        blockHeight: prev.blockHeight + (Math.random() > 0.95 ? 1 : 0),
-        difficulty: prev.difficulty,
-        mempool: Math.max(1000, prev.mempool + Math.floor((Math.random() - 0.5) * 500)),
-        fees: Math.max(1, prev.fees + Math.floor((Math.random() - 0.5) * 5)),
-      }))
+
+      const shouldFetchReal = Math.random() > 0.97 // ~3% chance every second = real fetch every ~30 seconds
+
+      if (shouldFetchReal) {
+        const newData = await fetchBitcoinData()
+        if (Object.keys(newData).length > 0) {
+          setData((prev) => ({ ...prev, ...newData }))
+        }
+      } else {
+        // Minor simulated fluctuations between real fetches
+        setData((prev) => {
+          const newBtcPriceLKR = prev.btcPriceLKR + (Math.random() - 0.5) * (prev.btcPriceLKR * 0.001) // 0.1% max change
+          const newBtcPriceUSD = prev.btcPriceUSD + (Math.random() - 0.5) * (prev.btcPriceUSD * 0.001)
+          return {
+            ...prev,
+            btcPriceLKR: newBtcPriceLKR,
+            btcPriceUSD: newBtcPriceUSD,
+            satsPerLKR: Number((100000000 / newBtcPriceLKR).toFixed(2)),
+            lkrPerSat: Number((newBtcPriceLKR / 100000000).toFixed(4)),
+            mempool: Math.max(1000, prev.mempool + Math.floor((Math.random() - 0.5) * 100)),
+          }
+        })
+      }
     }, 1000)
 
     return () => clearInterval(interval)
@@ -95,7 +148,7 @@ export default function BitcoinDashboard() {
           alt="Bitcoin Deepa Logo"
           width={120}
           height={120}
-          className="filter brightness-0 invert"
+          className=""
         />
       </div>
 
@@ -103,7 +156,7 @@ export default function BitcoinDashboard() {
       <div className="w-full max-w-7xl">
         {/* First Row - 2 Columns */}
         <div className="grid grid-cols-2 gap-8 mb-8">
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border hover:scale-105 hover:shadow-lg transition-all duration-300 cursor-pointer">
             <CardContent className="p-8 text-center">
               <h3 className="text-xl text-muted-foreground mb-4">Bitcoin Price (LKR)</h3>
               <div className="text-6xl font-bold text-primary mb-2">
@@ -123,7 +176,7 @@ export default function BitcoinDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border hover:scale-105 hover:shadow-lg transition-all duration-300 cursor-pointer">
             <CardContent className="p-8 text-center">
               <h3 className="text-xl text-muted-foreground mb-4">Satoshis ⇄ LKR</h3>
               <div className="text-3xl font-bold text-primary mb-2">
@@ -157,7 +210,7 @@ export default function BitcoinDashboard() {
 
         {/* Second Row - 4 Columns */}
         <div className="grid grid-cols-4 gap-6">
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border hover:scale-105 hover:shadow-lg transition-all duration-300 cursor-pointer">
             <CardContent className="p-6 text-center">
               <h3 className="text-base text-muted-foreground mb-3">Block Height</h3>
               <div className="text-3xl font-bold text-primary">
@@ -169,7 +222,7 @@ export default function BitcoinDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border hover:scale-105 hover:shadow-lg transition-all duration-300 cursor-pointer">
             <CardContent className="p-6 text-center">
               <h3 className="text-base text-muted-foreground mb-3">Difficulty</h3>
               <div className="text-3xl font-bold text-primary">
@@ -178,7 +231,7 @@ export default function BitcoinDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border hover:scale-105 hover:shadow-lg transition-all duration-300 cursor-pointer">
             <CardContent className="p-6 text-center">
               <h3 className="text-base text-muted-foreground mb-3">Mempool</h3>
               <div className="text-3xl font-bold text-primary">
@@ -190,7 +243,7 @@ export default function BitcoinDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border hover:scale-105 hover:shadow-lg transition-all duration-300 cursor-pointer">
             <CardContent className="p-6 text-center">
               <h3 className="text-base text-muted-foreground mb-3">Fees (sat/vB)</h3>
               <div className="text-3xl font-bold text-primary">
