@@ -102,7 +102,7 @@ export default function BitcoinDashboard() {
     const interval = setInterval(async () => {
       setPreviousData(data)
 
-      const shouldFetchReal = Math.random() > 0.97 // ~3% chance every second = real fetch every ~30 seconds
+      const shouldFetchReal = Math.random() > 0.97 // ~3% chance every 2.5 seconds = real fetch every ~80 seconds
 
       if (shouldFetchReal) {
         const newData = await fetchBitcoinData()
@@ -124,7 +124,7 @@ export default function BitcoinDashboard() {
           }
         })
       }
-    }, 1000)
+    }, 2500) // Changed from 1000ms to 2500ms
 
     return () => clearInterval(interval)
   }, [data])
