@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import Image from "next/image"
 
@@ -13,6 +13,7 @@ interface BitcoinData {
   difficulty: string
   mempool: number
   fees: number
+  priceChange24h: number
 }
 
 // Component for flowing number animation
@@ -88,46 +89,71 @@ export default function BitcoinDashboard() {
     difficulty: "109.78T",
     mempool: 15234,
     fees: 12,
+    priceChange24h: 2.5,
   })
 
   const [previousData, setPreviousData] = useState<BitcoinData>(data)
+  const wsRef = useRef<WebSocket | null>(null)
+  const usdToLkrRate = 303 // Fixed USD to LKR rate
 
   useEffect(() => {
-    fetchBitcoinData().then((newData) => {
-      if (Object.keys(newData).length > 0) {
-        setData((prev) => ({ ...prev, ...newData }))
+    const connectWebSocket = () => {
+      const ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@ticker")
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        console.log("[v0] Binance WebSocket connected")
       }
-    })
 
-    const interval = setInterval(async () => {
-      setPreviousData(data)
+      ws.onmessage = (event) => {
+        try {
+          const tickerData = JSON.parse(event.data)
+          const btcPriceUSD = Number.parseFloat(tickerData.c) // Current price
+          const priceChange24h = Number.parseFloat(tickerData.P) // 24h price change percentage
 
-      const shouldFetchReal = Math.random() > 0.97 // ~3% chance every 2.5 seconds = real fetch every ~80 seconds
+          setData((prev) => {
+            const btcPriceLKR = btcPriceUSD * usdToLkrRate
+            const newData = {
+              ...prev,
+              btcPriceUSD,
+              btcPriceLKR,
+              satsPerLKR: Number((100000000 / btcPriceLKR).toFixed(2)),
+              lkrPerSat: Number((btcPriceLKR / 100000000).toFixed(4)),
+              priceChange24h,
+              // Simulate minor changes for other data
+              mempool: Math.max(1000, prev.mempool + Math.floor((Math.random() - 0.5) * 50)),
+              blockHeight: prev.blockHeight + (Math.random() > 0.99 ? 1 : 0), // Occasional block
+            }
 
-      if (shouldFetchReal) {
-        const newData = await fetchBitcoinData()
-        if (Object.keys(newData).length > 0) {
-          setData((prev) => ({ ...prev, ...newData }))
+            // Set previous data for animation comparison
+            setPreviousData(prev)
+            return newData
+          })
+        } catch (error) {
+          console.error("[v0] Error parsing WebSocket data:", error)
         }
-      } else {
-        // Minor simulated fluctuations between real fetches
-        setData((prev) => {
-          const newBtcPriceLKR = prev.btcPriceLKR + (Math.random() - 0.5) * (prev.btcPriceLKR * 0.001) // 0.1% max change
-          const newBtcPriceUSD = prev.btcPriceUSD + (Math.random() - 0.5) * (prev.btcPriceUSD * 0.001)
-          return {
-            ...prev,
-            btcPriceLKR: newBtcPriceLKR,
-            btcPriceUSD: newBtcPriceUSD,
-            satsPerLKR: Number((100000000 / newBtcPriceLKR).toFixed(2)),
-            lkrPerSat: Number((newBtcPriceLKR / 100000000).toFixed(4)),
-            mempool: Math.max(1000, prev.mempool + Math.floor((Math.random() - 0.5) * 100)),
-          }
-        })
       }
-    }, 2500) // Changed from 1000ms to 2500ms
 
-    return () => clearInterval(interval)
-  }, [data])
+      ws.onerror = (error) => {
+        console.error("[v0] WebSocket error:", error)
+      }
+
+      ws.onclose = () => {
+        console.log("[v0] WebSocket closed, attempting to reconnect...")
+        // Reconnect after 5 seconds
+        setTimeout(connectWebSocket, 5000)
+      }
+    }
+
+    connectWebSocket()
+
+    // Cleanup on unmount
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-background p-8 flex flex-col items-center justify-center">
@@ -162,6 +188,10 @@ export default function BitcoinDashboard() {
                   previousValue={previousData.btcPriceUSD.toLocaleString()}
                   prefix="$"
                 />
+              </div>
+              <div className={`text-sm mt-2 ${data.priceChange24h >= 0 ? "text-green-500" : "text-red-500"}`}>
+                {data.priceChange24h >= 0 ? "+" : ""}
+                {data.priceChange24h.toFixed(2)}% (24h)
               </div>
             </CardContent>
           </Card>
