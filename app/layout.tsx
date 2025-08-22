@@ -12,7 +12,6 @@ const exo = Exo({
 export const metadata: Metadata = {
   title: "Bitcoin Deepa - Live Dashboard",
   description: "Real-time Bitcoin metrics in LKR",
-  generator: "v0.app",
 }
 
 export default function RootLayout({
