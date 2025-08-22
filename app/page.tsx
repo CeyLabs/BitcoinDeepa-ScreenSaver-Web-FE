@@ -61,14 +61,15 @@ async function fetchBitcoinData(): Promise<Partial<BitcoinData>> {
     const response = await fetch("/api/bitcoin")
     const data = await response.json()
 
-    const btcPriceUSD = data.bitcoin.usd
-    const btcPriceLKR = data.bitcoin.lkr
+    const btcPriceUSD = Math.round(data.bitcoin.usd)
+    const rawLKR = data.bitcoin.lkr
+    const btcPriceLKR = Math.round(rawLKR)
 
     return {
       btcPriceUSD,
       btcPriceLKR,
-      satsPerLKR: Number((100000000 / btcPriceLKR).toFixed(2)),
-      lkrPerSat: Number((btcPriceLKR / 100000000).toFixed(4)),
+      satsPerLKR: Number((100000000 / rawLKR).toFixed(2)),
+      lkrPerSat: Number((rawLKR / 100000000).toFixed(4)),
       blockHeight: data.blockHeight,
       mempool: data.mempool.count,
       fees: 12, // Default fee rate
@@ -115,8 +116,8 @@ export default function BitcoinDashboard() {
             const btcPriceLKR = btcPriceUSD * usdToLkrRate
             const newData = {
               ...prev,
-              btcPriceUSD,
-              btcPriceLKR,
+              btcPriceUSD: Math.round(btcPriceUSD),
+              btcPriceLKR: Math.round(btcPriceLKR),
               satsPerLKR: Number((100000000 / btcPriceLKR).toFixed(2)),
               lkrPerSat: Number((btcPriceLKR / 100000000).toFixed(4)),
               priceChange24h,
@@ -177,15 +178,15 @@ export default function BitcoinDashboard() {
               <h3 className="text-xl text-muted-foreground mb-4">Bitcoin Price (LKR)</h3>
               <div className="text-6xl font-bold text-primary mb-2">
                 <FlowingNumber
-                  value={data.btcPriceLKR.toLocaleString()}
-                  previousValue={previousData.btcPriceLKR.toLocaleString()}
+                  value={data.btcPriceLKR.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  previousValue={previousData.btcPriceLKR.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   prefix="රු. "
                 />
               </div>
               <div className="text-lg text-muted-foreground">
                 <FlowingNumber
-                  value={data.btcPriceUSD.toLocaleString()}
-                  previousValue={previousData.btcPriceUSD.toLocaleString()}
+                  value={data.btcPriceUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  previousValue={previousData.btcPriceUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   prefix="$"
                 />
               </div>
